@@ -9,7 +9,7 @@ node_modules
 /out
 /dist
 /contract/target
-/contract/res/*.wasm
+/contract/res
 
 # keys
 /templates/react/neardev

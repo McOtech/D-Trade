@@ -6,39 +6,54 @@
  *
  */
 
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{log, near_bindgen};
+mod escrow;
+mod transaction;
+mod utils;
 
-// Define the default message
-const DEFAULT_MESSAGE: &str = "Hello";
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::collections::{LookupMap, UnorderedMap, Vector};
+use near_sdk::{env, near_bindgen, AccountId};
+use near_sdk::json_types::U128;
+use utils::{Account, LockedAmount, OrderItem, Order};
+
 
 // Define the contract structure
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Contract {
-    message: String,
+    token_precision: u8,
+    balances: LookupMap<String, Account>,
+    locked_balances: LookupMap<String, UnorderedMap<String, LockedAmount>>,
+    orders: LookupMap<String, UnorderedMap<String, (Order, Vector<OrderItem>)>>,
+    orders_pending: LookupMap<String, UnorderedMap<String, String>>,
+    orders_stagged: LookupMap<String, UnorderedMap<String, String>>,
+    orders_shipping: LookupMap<String, UnorderedMap<String, String>>,
 }
 
 // Define the default, which automatically initializes the contract
 impl Default for Contract{
     fn default() -> Self{
-        Self{message: DEFAULT_MESSAGE.to_string()}
+        Self{
+            token_precision: 18,
+            balances: LookupMap::new(b"b"), // b
+            locked_balances: LookupMap::new(b"l"), // l, a
+            orders: LookupMap::new(b"o"), // o, n, p
+            orders_pending: LookupMap::new(b"c"), // c, f
+            orders_stagged: LookupMap::new(b"d"), // d
+            orders_shipping: LookupMap::new(b"e"), // e
+        }
     }
 }
 
 // Implement the contract structure
 #[near_bindgen]
 impl Contract {
-    // Public method - returns the greeting saved, defaulting to DEFAULT_MESSAGE
-    pub fn get_greeting(&self) -> String {
-        return self.message.clone();
-    }
-
-    // Public method - accepts a greeting, such as "howdy", and records it
-    pub fn set_greeting(&mut self, message: String) {
-        // Use env::log to record logs permanently to the blockchain!
-        log!("Saving greeting {}", message);
-        self.message = message;
+    pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> String {
+        if let Some(balance) = self.place_order(sender_id, amount.0, msg, self.token_precision) {
+            balance.to_string()
+        } else {
+            amount.0.to_string()
+        }
     }
 }
 
@@ -48,25 +63,5 @@ impl Contract {
  */
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn get_default_greeting() {
-        let contract = Contract::default();
-        // this test did not call set_greeting so should return the default "Hello" greeting
-        assert_eq!(
-            contract.get_greeting(),
-            "Hello".to_string()
-        );
-    }
-
-    #[test]
-    fn set_then_get_greeting() {
-        let mut contract = Contract::default();
-        contract.set_greeting("howdy".to_string());
-        assert_eq!(
-            contract.get_greeting(),
-            "howdy".to_string()
-        );
-    }
+    
 }
